@@ -150,6 +150,6 @@ Use when the user asks to read, address, or answer feedback. Comments exist only
 
 - `references/recipes.md` — tested scripts: tokens, text/layer styles, button component, Components with Variants, screen placement, Stacks, card grid, instances + batched overrides, Sections, scale/transform, prototype links, export, comments, document audit, text contrast check.
 - `references/feature-map.md` — Sketch features and how to drive each one (API vs manual).
-- `references/setup.md` — connecting Sketch MCP to Claude Code / T3 Code / Codex / Cursor, the tool list, troubleshooting.
+- `references/setup.md` — connecting Sketch MCP to Claude Code / T3 Code / Codex / Cursor, the tool list, troubleshooting, and the re-test checklist to run after a Sketch update.
 - Sketch MCP docs: https://www.sketch.com/docs/mcp-server/
 - SketchAPI (plain text for agents): https://developer.sketch.com/reference/api/llms-full.txt — recent API changes: https://developer.sketch.com/plugins/updates/llms.txt

@@ -39,3 +39,31 @@ Comment and notification tools need Sketch signed in to a Sketch account and a d
 - The port is taken: quit Sketch, run `defaults write com.bohemiancoding.sketch3 mcpServerPortNumber -int <1024–49151>`, relaunch Sketch, and update the URL in your agent's config.
 - "Comments are only available in documents saved to a Workspace" / "Not signed in to a Sketch account": save the document to a Workspace / sign in under Sketch → Settings → Account.
 - To point the agent at a specific layer: select it in Sketch, choose **Copy Layer ID** from the Command Bar or the right-click Copy menu, and paste the ID into your prompt. Sketch share links (`https://sketch.com/s/<doc>/f/<frame>`) work too.
+
+## Re-testing after a Sketch update
+
+The gotchas and recipes are verified against one Sketch build (currently 2026.4, 238217). After a Sketch update, rerun these checks before trusting them. Work in a scratch document (`new sketch.Document()`, resolve it by ID, close it without saving at the end), never in the user's file.
+
+1. Version probe, then compare `get_guide` topics and the MCP tool list with the tables above. Read the new release's API notes: https://developer.sketch.com/plugins/updates/llms.txt
+2. Run each check below. If a result differs, update the matching gotcha in `SKILL.md` and the recipe it affects. Remove a workaround once the bug is fixed.
+3. Run recipes 1–14 in order on the scratch document, with a canvas check after each one that changes something visible, plus recipes 16–17 on the result.
+4. Update the build number here and the "tested on" line at the top of `recipes.md`.
+
+| Check | How | Result on 2026.4 |
+|---|---|---|
+| Missing font | Set `fontFamily = 'NoSuchFont'` on a new Text, read it back | Silently keeps Helvetica |
+| Font size readback | Read `style.fontSize` on a styled text layer | `null` |
+| Text style from a plain object | Push `{ fontSize, fontWeight, textSwatch }` as a shared text style, apply it, read `textSwatch` | Size and swatch kept |
+| Frame with `style.fills` | New canvas Frame with one swatch fill; count `style.fills` | 1 (no extra white fill) |
+| Frame without fills | New canvas Frame, no style | One white `#ffffffff` fill |
+| Components page name | `Page.createSymbolsPage()` in a new document | "Components" |
+| Variant property names | `new Group.VariantSet` with `Button/Primary/M`-style sources and no `variantProperties` | "Property 1", "Property 2" |
+| Default variant | Read `set.defaultVariantMaster` | First value of each property |
+| Section stack collapse | Wrap a top-level frame in a Section, give the section a `stackLayout` | Frame collapses to 0.1 × 0.1 (its sizing is `Relative`) |
+| Placement measurement | Frames in a section: compare `page.layers` vs `page.canvasLevelFrames` right edges | `canvasLevelFrames` is short by the section padding |
+| Long text in a column Stack | 345-wide column, long Body text, `alignItems: Stretch` | Overflows unless the text is `Fill` |
+| Stretched instance | Button instance in a `Stretch` column | Label stays left unless the instance is `Fill` |
+| Card row height | Row created with `alignItems: Stretch`, cards with wrapping text | Row stays at its initial height |
+| Stack packing order | Row with `layers: [A, B, C]` | Draws C, B, A |
+| Section as Start Point | `section.flowStartPoint = true` | Throws "Can't make a Section a prototype start point" |
+| Screenshot size limit | `get_screenshot` on a very wide page | Refused above 100 megapixels |
