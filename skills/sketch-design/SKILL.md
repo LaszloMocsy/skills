@@ -92,7 +92,7 @@ After every appearance-changing batch: `get_screenshot` of the changed frame, cr
 
 - Hierarchy reads at a glance; one primary action per view.
 - Spacing on a 4/8-pt rhythm; consistent gaps in sibling Stacks; aligned edges.
-- Text contrast ≥ 4.5:1 for body, ≥ 3:1 for large text and UI boundaries; touch targets ≥ 44×44 (iOS) / 48×48 (Android).
+- Text contrast ≥ 4.5:1 for body, ≥ 3:1 for large text and UI boundaries — measure it with recipe 17 instead of judging by eye; touch targets ≥ 44×44 (iOS) / 48×48 (Android).
 - No clipped or overflowing text, no clipped shadows, no overlaps, nothing outside its frame.
 - Every color/text/surface uses a Color Variable or shared style; repeated UI is component instances; states are Variants.
 - Every layer has a meaningful name (`Header`, `Primary CTA`, not `Rectangle 3`).
@@ -104,7 +104,7 @@ Only then call `doc.centerOnLayer(frame)` once. Summarize: frames/sections creat
 When asked to audit, review or clean up a file, inspect before changing anything:
 
 1. `get_document_info`, then `get_design_assets` for the document's tokens, styles and components.
-2. Run recipe 16 per page (structure) and per screen frame (tokens). Audit Component sources on the Components page too, since instances are skipped.
+2. Run recipe 16 per page (structure) and per screen frame (tokens), and recipe 17 for contrast. Audit Component sources on the Components page too, since instances are skipped.
 3. Canvas check each frame for what scripts can't see: spacing rhythm, alignment, clipped text, visual hierarchy.
 4. Report findings grouped by severity (accessibility, broken system links, structure, naming) with layer names and IDs, and propose fixes. Change nothing until the user picks what to fix; then fix in small verified steps.
 
@@ -148,7 +148,7 @@ Use when the user asks to read, address, or answer feedback. Comments exist only
 
 ## References
 
-- `references/recipes.md` — tested scripts: tokens, text/layer styles, button component, Components with Variants, screen placement, Stacks, card grid, instances + batched overrides, Sections, scale/transform, prototype links, export, comments, document audit.
+- `references/recipes.md` — tested scripts: tokens, text/layer styles, button component, Components with Variants, screen placement, Stacks, card grid, instances + batched overrides, Sections, scale/transform, prototype links, export, comments, document audit, text contrast check.
 - `references/feature-map.md` — Sketch features and how to drive each one (API vs manual).
 - `references/setup.md` — connecting Sketch MCP to Claude Code / T3 Code / Codex / Cursor, the tool list, troubleshooting.
 - Sketch MCP docs: https://www.sketch.com/docs/mcp-server/

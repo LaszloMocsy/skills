@@ -613,4 +613,63 @@ Object.keys(found).forEach(k => {
 console.log(JSON.stringify({ ok: true, page: page.name, topLevel: tops.length, issues: out }))
 ```
 
-`likelyDetached` is a heuristic: confirm with `get_layer_tree_summary` before replacing a layer with an instance. Text layers aren't flagged for names because Sketch names them after their content. Add a canvas check of each frame for a complete audit.
+`likelyDetached` is a heuristic: confirm with `get_layer_tree_summary` before replacing a layer with an instance. Text layers aren't flagged for names because Sketch names them after their content. Add the contrast check (recipe 17) and a canvas check of each frame for a complete audit.
+
+## 17. Text contrast check (WCAG)
+
+Read-only. Computes the contrast ratio of every text layer under `<ROOT-ID>` against the solid fills of its ancestors (semi-transparent fills are blended, with white underneath when nothing opaque is found).
+
+```javascript
+const sketch = require('sketch')
+const doc = sketch.getSelectedDocument()
+const root = sketch.find('#' + '<ROOT-ID>', doc)[0]
+const Color = sketch.Style.FillType.Color
+const rgba = hex => {
+  const h = String(hex).replace('#', '')
+  return [0, 2, 4, 6].map(i => (i < h.length ? parseInt(h.slice(i, i + 2), 16) : 255) / 255)
+}
+const over = (top, bottom) => [0, 1, 2].map(i => top[i] * top[3] + bottom[i] * (1 - top[3])).concat([1])
+const lum = c => {
+  const ch = c.slice(0, 3).map(v => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)))
+  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2]
+}
+const background = layer => {
+  const layersOfFill = []
+  let p = layer.parent
+  while (p && p.type !== 'Page') {
+    const fills = p.style ? p.style.fills.filter(f => f.enabled) : []
+    if (fills.some(f => f.fillType !== Color)) return { unknown: 'non-solid fill on ' + p.name }
+    fills.forEach(f => layersOfFill.push(rgba(f.color)))
+    if (layersOfFill.length && layersOfFill[layersOfFill.length - 1][3] === 1) break
+    p = p.parent
+  }
+  let bg = [1, 1, 1, 1]
+  layersOfFill.reverse().forEach(c => { bg = over(c, bg) })
+  return { color: bg, from: p && p.name }
+}
+const results = []
+const visit = layer => {
+  if (layer.type === 'Text') {
+    const bg = background(layer)
+    if (bg.unknown) {
+      results.push({ id: layer.id, name: layer.name, ratio: null, note: bg.unknown })
+    } else {
+      const fg = over(rgba(layer.style.textColor), bg.color)
+      const a = lum(fg)
+      const b = lum(bg.color)
+      const ratio = Math.round(((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)) * 100) / 100
+      results.push({ id: layer.id, name: layer.name, text: String(layer.text).slice(0, 30), ratio: ratio, on: bg.from, verdict: ratio >= 4.5 ? 'pass' : ratio >= 3 ? 'large-text-only' : 'fail' })
+    }
+  }
+  if (layer.type === 'SymbolInstance') return
+  if (layer.layers) layer.layers.forEach(visit)
+}
+visit(root)
+console.log(JSON.stringify({ ok: true, root: root.name, results: results.sort((x, y) => (x.ratio || 0) - (y.ratio || 0)) }))
+```
+
+Results are sorted worst first. Thresholds (WCAG AA): 4.5:1 for body text, 3:1 for large text (≥ 24 px, or ≥ 18.66 px bold). `large-text-only` passes only for headings that size; `fontSize` reads back as `null`, so judge the size from the style name or frame height. Known checks on 2026.4: white on `#4F46E5` = 6.29, `#777777` on `#F8FAFC` = 4.28, `#0F172A` on `#F8FAFC` = 17.06.
+
+Limits: only ancestor fills count, not a sibling shape or image behind the text; `ratio: null` means a gradient or image background, so check those on the canvas. Text inside instances is skipped: run the check on the Component sources (Components page), where the label and its fill live.
+
+To fix a failure, change the Color Variable (every use updates) rather than the single layer, then rerun the check.
