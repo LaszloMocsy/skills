@@ -537,3 +537,80 @@ Only for documents saved to a Workspace, with Sketch signed in. Otherwise the to
 4. Show the user the reply text, and after they confirm: `save_comment` `{ targetDocumentID, annotationID, body: "Updated the CTA contrast to 4.8:1.", resolved: true }`.
 
 Other calls: new thread `save_comment` `{ subjectID, body, x, y }`; edit your comment `save_comment` `{ commentID, body }`; reopen `{ annotationID, resolved: false }`; `delete_comment` `{ commentID }` or `{ annotationID }` (permanent). `list_notifications` finds comments and mentions across documents; pass its `document.documentID` and `annotationID` to `list_comments`.
+
+## 16. Audit a document (read-only)
+
+Two scripts, both read-only. Run them per frame or page, report the findings to the user, and fix only what they approve.
+
+Part A — colors and text not tied to tokens. `<ROOT-ID>` is a frame or page ID from `get_document_info`. Instances are skipped: audit their sources on the Components page instead.
+
+```javascript
+const sketch = require('sketch')
+const doc = sketch.getSelectedDocument()
+const rootId = '<ROOT-ID>'
+const root = sketch.find('#' + rootId, doc)[0] || doc.pages.find(p => p.id === rootId)
+const Color = sketch.Style.FillType.Color
+const found = { unboundFill: [], unboundBorder: [], unboundText: [], noTextStyle: [] }
+let checked = 0
+let instances = 0
+const visit = layer => {
+  checked++
+  const ref = { id: layer.id, name: layer.name }
+  const style = layer.style
+  if (style && layer.type !== 'Text') {
+    if (style.fills.some(f => f.enabled && f.fillType === Color && !f.swatch)) found.unboundFill.push(ref)
+    if (style.borders.some(b => b.enabled && b.fillType === Color && !b.swatch)) found.unboundBorder.push(ref)
+  }
+  if (layer.type === 'Text') {
+    if (!layer.style.textSwatch) found.unboundText.push({ id: layer.id, name: layer.name, color: String(layer.style.textColor) })
+    if (!layer.sharedStyle) found.noTextStyle.push(ref)
+  }
+  if (layer.type === 'SymbolInstance') {
+    instances++
+    return
+  }
+  if (layer.layers) layer.layers.forEach(visit)
+}
+visit(root)
+const out = {}
+Object.keys(found).forEach(k => {
+  out[k] = { count: found[k].length, first: found[k].slice(0, 15) }
+})
+console.log(JSON.stringify({ ok: true, root: root.name, checked: checked, instancesSkipped: instances, issues: out }))
+```
+
+A plain canvas Frame without `style.fills` has an unbound white background, so it shows up under `unboundFill`; bind it to `Color/Background` or accept it. Shadows aren't checked (they usually use an alpha color by design).
+
+Part B — structure: default layer names, likely detached components (a group or frame with the same name as a component, which is what `detach()` leaves), and overlapping top-level layers on a page.
+
+```javascript
+const sketch = require('sketch')
+const doc = sketch.getSelectedDocument()
+const page = doc.pages.find(p => p.id === '<PAGE-ID>')
+const defaultName = /^(Rectangle|Oval|Ellipse|Line|Arrow|Triangle|Star|Polygon|Path|Shape|Combined Shape|Group|Frame|Graphic|Image|Bitmap|Vector|Hotspot)( copy)?( \d+)?$/i
+const componentNames = new Set(doc.getSymbols().map(m => m.name).concat(doc.getVariantSets().map(s => s.name)))
+const found = { defaultNames: [], likelyDetached: [], overlaps: [] }
+const visit = layer => {
+  if (defaultName.test(layer.name)) found.defaultNames.push({ id: layer.id, name: layer.name })
+  if (layer.type !== 'SymbolInstance' && layer.type !== 'SymbolMaster' && layer.layers && componentNames.has(layer.name)) {
+    found.likelyDetached.push({ id: layer.id, name: layer.name })
+  }
+  if (layer.type === 'SymbolInstance') return
+  if (layer.layers) layer.layers.forEach(visit)
+}
+page.layers.forEach(visit)
+const tops = page.layers.map(l => ({ id: l.id, name: l.name, f: l.frame }))
+tops.forEach((a, i) => {
+  tops.slice(i + 1).forEach(b => {
+    const hit = a.f.x < b.f.x + b.f.width && b.f.x < a.f.x + a.f.width && a.f.y < b.f.y + b.f.height && b.f.y < a.f.y + a.f.height
+    if (hit) found.overlaps.push([a.name + ' (' + a.id + ')', b.name + ' (' + b.id + ')'])
+  })
+})
+const out = {}
+Object.keys(found).forEach(k => {
+  out[k] = { count: found[k].length, first: found[k].slice(0, 15) }
+})
+console.log(JSON.stringify({ ok: true, page: page.name, topLevel: tops.length, issues: out }))
+```
+
+`likelyDetached` is a heuristic: confirm with `get_layer_tree_summary` before replacing a layer with an instance. Text layers aren't flagged for names because Sketch names them after their content. Add a canvas check of each frame for a complete audit.

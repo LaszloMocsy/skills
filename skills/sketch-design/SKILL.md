@@ -99,7 +99,16 @@ After every appearance-changing batch: `get_screenshot` of the changed frame, cr
 
 Only then call `doc.centerOnLayer(frame)` once. Summarize: frames/sections created (names + IDs), tokens/styles/components/variants added, what the last canvas check showed, and manual steps left (fonts to install, prototype overlays, etc.). Offer exports (`sketch.export`, see `get_guide` `assets`) or Frame Templates (`frame.isTemplate = true`) if useful.
 
-## 3. Comments (Workspace documents only)
+## 3. Auditing an existing document
+
+When asked to audit, review or clean up a file, inspect before changing anything:
+
+1. `get_document_info`, then `get_design_assets` for the document's tokens, styles and components.
+2. Run recipe 16 per page (structure) and per screen frame (tokens). Audit Component sources on the Components page too, since instances are skipped.
+3. Canvas check each frame for what scripts can't see: spacing rhythm, alignment, clipped text, visual hierarchy.
+4. Report findings grouped by severity (accessibility, broken system links, structure, naming) with layer names and IDs, and propose fixes. Change nothing until the user picks what to fix; then fix in small verified steps.
+
+## 4. Comments (Workspace documents only)
 
 Use when the user asks to read, address, or answer feedback. Comments exist only on documents saved to a Sketch Workspace with the user signed in; otherwise the tools return "Comments are only available in documents saved to a Workspace." / "Not signed in to a Sketch account." — tell the user and stop.
 
@@ -109,7 +118,7 @@ Use when the user asks to read, address, or answer feedback. Comments exist only
 4. Reply / resolve with `save_comment` (`annotationID` + `body` to reply; `annotationID` + `resolved: true` [+ `body`] to resolve). Start a new thread with `subjectID` + `body` (+ `x`, `y`). Edit your own comment with `commentID` + `body`. Mentions: `@[Name](user:ID)`.
 5. Comments post as the signed-in user, are visible to everyone with access and may notify people: **show the user the exact text and get confirmation before posting, resolving, or deleting.** `delete_comment` can't be undone — use it only when asked.
 
-## 4. `run_code` rules (from Sketch's guide — follow strictly)
+## 5. `run_code` rules (from Sketch's guide — follow strictly)
 
 - First line `const sketch = require('sketch')`. Public SketchAPI only — no `sketchObject`, `MS*` classes or Objective-C bridges.
 - **One small action per script.** Never build a whole screen or region in one call. Re-resolve the document and layers by ID every script; nothing persists between calls.
@@ -120,7 +129,7 @@ Use when the user asks to read, address, or answer feedback. Comments exist only
 - On failure: load `get_guide` `troubleshooting`, read the full error, change one thing, retry.
 - `get_screenshot` refuses captures over 100 megapixels — screenshot a frame, not a wide page. Large PNGs come back as a file path; read that file.
 
-## 5. Verified gotchas (Sketch 2026.4)
+## 6. Verified gotchas (Sketch 2026.4)
 
 - **Stacks pack in reverse index order.** The highest index is drawn first (left/top). Pass `layers: [...]` in reverse reading order; a layer you add to an existing stack lands at the **start** — set `child.index = 0` to append it at the end. Same for variants inside a Component with a Stack.
 - **Frame backgrounds:** a canvas Frame created with `style.fills` gets exactly that fill (the 2026.3 white-fill-on-top bug is fixed). Without `style.fills` it gets a default white background. Structural wrappers: pass `background: { enabled: false }`. `fromFrame` keeps the frame's fill.
@@ -139,7 +148,7 @@ Use when the user asks to read, address, or answer feedback. Comments exist only
 
 ## References
 
-- `references/recipes.md` — tested scripts: tokens, text/layer styles, button component, Components with Variants, screen placement, Stacks, card grid, instances + batched overrides, Sections, scale/transform, prototype links, export, comments.
+- `references/recipes.md` — tested scripts: tokens, text/layer styles, button component, Components with Variants, screen placement, Stacks, card grid, instances + batched overrides, Sections, scale/transform, prototype links, export, comments, document audit.
 - `references/feature-map.md` — Sketch features and how to drive each one (API vs manual).
 - `references/setup.md` — connecting Sketch MCP to Claude Code / T3 Code / Codex / Cursor, the tool list, troubleshooting.
 - Sketch MCP docs: https://www.sketch.com/docs/mcp-server/
