@@ -162,8 +162,9 @@ const made = specs.map(s => {
   const m = base.duplicate()
   m.name = s.name
   if (s.secondary) {
+    const label = m.layers.find(l => l.name === 'Label')
     m.style.fills = [{ fillType: sketch.Style.FillType.Color, swatch: sw('Color/Brand/Subtle') }]
-    m.layers[0].style.textSwatch = sw('Color/Brand/Primary')
+    if (label) label.style.textSwatch = sw('Color/Brand/Primary')
   }
   if (s.large) {
     m.stackLayout.padding = { vertical: 16, horizontal: 28 }
@@ -175,7 +176,7 @@ const made = specs.map(s => {
 console.log(JSON.stringify({ ok: true, made: made }))
 ```
 
-`duplicate()` on a Component Source gives a new source with its own `symbolId`. Then combine them. Always pass `variantProperties` (otherwise Sketch names them "Property 1", "Property 2"), list each property's **default value first**, and set every source's `variantConfiguration`:
+`duplicate()` on a Component Source gives a new source with its own `symbolId`. Look inner layers up by name (`Label`), not by index: the index changes as soon as the source gets an icon or another child. Then combine them. Always pass `variantProperties` (otherwise Sketch names them "Property 1", "Property 2"), list each property's **default value first**, and set every source's `variantConfiguration`:
 
 ```javascript
 const sketch = require('sketch')
@@ -212,33 +213,47 @@ console.log(JSON.stringify({
 
 Sources are renamed to their configuration (`Primary/M`). `defaultVariant` should be `Primary/M`. Rename an existing property with `set.variantProperties.find(p => p.name === 'Property 1').name = 'Style'`; dissolve a set with `set.ungroup()` (returns the sources, clears their configuration — only when the user asks).
 
-Optional: lay the variants out in a padded grid. The set has a fixed size, so a wrapping Stack is the easiest way to keep it tidy:
+Optional: lay the variants out in a padded grid — the first property's values across, the second's down. The set has a fixed size, so a wrapping Stack is the easiest way to keep it tidy. Width and order are derived from the set, so this works for any two-property component:
 
 ```javascript
 const sketch = require('sketch')
 const doc = sketch.getSelectedDocument()
 const set = doc.getVariantSetWithID('<SET-ID>')
+const gap = 24
+const padding = 24
+const colProp = set.variantProperties[0]
+const rowProp = set.variantProperties[1]
+const cols = colProp.values.length
+const maxW = Math.max(...set.layers.map(l => l.frame.width))
+const width = cols * maxW + (cols - 1) * gap + 2 * padding
+const drawn = []
+rowProp.values.forEach(r => {
+  colProp.values.forEach(c => {
+    const m = set.layers.find(l => l.variantConfiguration[colProp.name] === c && l.variantConfiguration[rowProp.name] === r)
+    if (m) drawn.push(m)
+  })
+})
+const x = set.frame.x
+const y = set.frame.y
 set.stackLayout = {
   direction: sketch.StackLayout.Direction.Row,
   wraps: true,
-  gap: 24,
-  crossAxisGap: 24,
-  padding: 24,
+  gap: gap,
+  crossAxisGap: gap,
+  padding: padding,
   alignItems: sketch.StackLayout.AlignItems.Center
 }
 set.horizontalSizing = sketch.FlexSizing.Fixed
-set.frame = { x: set.frame.x, y: set.frame.y, width: 274, height: set.frame.height }
-const drawn = ['Primary/M', 'Secondary/M', 'Primary/L', 'Secondary/L']
-drawn.forEach((name, i) => {
-  const l = set.layers.find(x => x.name === name)
-  if (l) l.index = drawn.length - 1 - i
+if (Number.isFinite(width)) set.frame = { x: x, y: y, width: width, height: set.frame.height }
+drawn.forEach((m, i) => {
+  m.index = drawn.length - 1 - i
 })
 set.stackLayout.apply()
-set.frame = { x: 0, y: 0, width: set.frame.width, height: set.frame.height }
-console.log(JSON.stringify({ ok: true, frame: set.frame }))
+set.frame = { x: x, y: y, width: set.frame.width, height: set.frame.height }
+console.log(JSON.stringify({ ok: true, cols: cols, width: width, frame: set.frame, order: drawn.map(m => m.name) }))
 ```
 
-Width = two widest variants + gap + 2 × padding. `drawn` lists reading order; indices are reversed because Stacks pack the highest index first. Do a canvas check on `setId`.
+Each column is as wide as the widest variant, so the grid never wraps early. `drawn` is reading order; indices are reversed because Stacks pack the highest index first. The set's position is restored after `apply()`, which can shift it. The script assumes exactly two variant properties. Do a canvas check on `<SET-ID>`.
 
 ## 6. Screen frame placed beside everything on the page
 
